@@ -57,6 +57,7 @@ class Slot:
         self.emitedCount = 0
         # 其他
         self.__epstm = 0
+        self.__veto = False
     
     def emit(self, data, tunnel):
         if self.eps:
@@ -83,6 +84,16 @@ class Slot:
         self.data = None
         self.tunnel = None
         self.emitedCount += 1
+
+    @property
+    def veto(self):
+        return self.__veto
+
+    @veto.setter
+    def veto(self, b):
+        self.__veto = b
+        if self.tunnel:
+            self.tunnel.veto = b
 
 class Slots(Object):
     def __init__(self):
@@ -135,7 +146,7 @@ class Slots(Object):
 
             if s.count and s.emitedCount >= s.count:
                 self.__slots.remove(s)
-                r.add(s)
+                r.add(s.target)
 
             if s.veto:
                 break
@@ -190,7 +201,8 @@ class Signals(Object):
         self.__invs.clear()
 
         #清空当前连接
-        for s in self.__slots:
+        for sig in self.__slots:
+            s = self.__slots[sig]
             s.clear()
         self.__slots.clear()
 
@@ -200,13 +212,13 @@ class Signals(Object):
             print("不能注册一个空信号")
             return False
 
-        if sig not in self.__slots:
+        if sig in self.__slots:
             return False
 
-        ss = Slot()
+        ss = Slots()
         ss.signal = sig
         ss.owner = self.owner
-        self.__slots[sig] = ss
+        self.__slots[sig] = ss        
         return True
 
     """信号主体"""
@@ -273,7 +285,7 @@ class Signals(Object):
         ss = self.__slots[sig]
         targets = ss.emit(data, tunnel)
         if targets:
-            for tgt in targets:
+            for tgt in targets:                
                 if not self.isConnectedOfTarget(tgt):
                     self.__inv_disconnect(tgt)
 
@@ -282,7 +294,8 @@ class Signals(Object):
         if target == None:
             return
 
-        for sig, s in self.__slots:
+        for sig in self.__slots:
+            s = self.__slots[sig]
             s.disconnect(None, target)
 
         if inv:
@@ -306,7 +319,8 @@ class Signals(Object):
                 self.__inv_disconnect(target)
 
     def isConnectedOfTarget(self, target):
-        for sig, s in self.__slots:
+        for sig in self.__slots:
+            s = self.__slots[sig]
             if s.is_connected(target):
                 return True
         return False
